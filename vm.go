@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"math"
@@ -33,7 +32,6 @@ func NewVM(cs []Command) *VM {
 
 func (v *VM) Eval(r io.Reader, w io.Writer) error {
 	v.prepareLabels()
-	sc := bufio.NewScanner(r)
 
 	for {
 		c := v.cs[v.index]
@@ -69,7 +67,7 @@ func (v *VM) Eval(r io.Reader, w io.Writer) error {
 			v.stack[len(v.stack)-2] = div(v.stack[len(v.stack)-2], v.stack[len(v.stack)-1])
 			v.stack = v.stack[:len(v.stack)-1]
 		case C_CALC_MOD:
-			v.stack[len(v.stack)-2] = abs(v.stack[len(v.stack)-2]) % abs(v.stack[len(v.stack)-1])
+			v.stack[len(v.stack)-2] = mod(v.stack[len(v.stack)-2], v.stack[len(v.stack)-1])
 			v.stack = v.stack[:len(v.stack)-1]
 		case C_HEAP_SAVE:
 			val := v.stack[len(v.stack)-1]
@@ -111,19 +109,13 @@ func (v *VM) Eval(r io.Reader, w io.Writer) error {
 			v.stack = v.stack[:len(v.stack)-1]
 		case C_IO_READ_CH:
 			addr := v.stack[len(v.stack)-1]
-			sc.Split(bufio.ScanBytes)
-			if !sc.Scan() {
-				return errors.New("Bad input")
-			}
-			v.heap[addr] = int(sc.Bytes()[0])
+			buf := []byte{0}
+			r.Read(buf)
+			v.heap[addr] = int(buf[0])
 			v.stack = v.stack[:len(v.stack)-1]
 		case C_IO_READ_NUM:
 			addr := v.stack[len(v.stack)-1]
-			sc.Split(bufio.ScanLines)
-			if !sc.Scan() {
-				return errors.New("Bad input")
-			}
-			i, err := strconv.Atoi(sc.Text())
+			i, err := readint(r)
 			if err != nil {
 				return err
 			}
@@ -145,13 +137,29 @@ func (v *VM) prepareLabels() {
 	}
 }
 
-func abs(i int) int {
-	if i < 0 {
-		return -i
-	}
-	return i
-}
-
 func div(i, j int) int {
 	return int(math.Floor(float64(i) / float64(j)))
+}
+
+func mod(i, j int) int {
+	r := i % j
+	if r < 0 {
+		return j + r
+	}
+	return r
+}
+
+func readint(r io.Reader) (int, error) {
+	buf := []byte{0}
+	s := ""
+	for {
+		_, err := r.Read(buf)
+		if err != nil {
+			return 0, err
+		}
+		if buf[0] == '\n' {
+			return strconv.Atoi(s)
+		}
+		s += string(buf)
+	}
 }
