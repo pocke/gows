@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -37,6 +38,12 @@ func (v *VM) Eval(r io.Reader, w io.Writer) error {
 	for {
 		c := v.cs[v.index]
 
+		// fmt.Println(v.stack)
+		// fmt.Println(v.heap)
+		// fmt.Printf("index: %d\n", v.index)
+		// fmt.Println("--------------------")
+		// fmt.Printf("%+v\n", c)
+
 		switch c.Type {
 		case C_STACK_PUSH:
 			v.stack = append(v.stack, c.Operand)
@@ -50,16 +57,19 @@ func (v *VM) Eval(r io.Reader, w io.Writer) error {
 		case C_STACK_POP:
 			v.stack = v.stack[:len(v.stack)-1]
 		case C_CALC_ADD:
-			v.stack[len(v.stack)-2] = v.stack[len(v.stack)-1] + v.stack[len(v.stack)-2]
+			v.stack[len(v.stack)-2] = v.stack[len(v.stack)-2] + v.stack[len(v.stack)-1]
 			v.stack = v.stack[:len(v.stack)-1]
 		case C_CALC_SUB:
-			v.stack[len(v.stack)-2] = v.stack[len(v.stack)-1] - v.stack[len(v.stack)-2]
+			v.stack[len(v.stack)-2] = v.stack[len(v.stack)-2] - v.stack[len(v.stack)-1]
+			v.stack = v.stack[:len(v.stack)-1]
 		case C_CALC_MULTI:
-			v.stack[len(v.stack)-2] = v.stack[len(v.stack)-1] * v.stack[len(v.stack)-2]
+			v.stack[len(v.stack)-2] = v.stack[len(v.stack)-2] * v.stack[len(v.stack)-1]
+			v.stack = v.stack[:len(v.stack)-1]
 		case C_CALC_DIV:
-			v.stack[len(v.stack)-2] = v.stack[len(v.stack)-1] / v.stack[len(v.stack)-2]
+			v.stack[len(v.stack)-2] = div(v.stack[len(v.stack)-2], v.stack[len(v.stack)-1])
+			v.stack = v.stack[:len(v.stack)-1]
 		case C_CALC_MOD:
-			v.stack[len(v.stack)-2] = v.stack[len(v.stack)-1] % v.stack[len(v.stack)-2]
+			v.stack[len(v.stack)-2] = abs(v.stack[len(v.stack)-2]) % abs(v.stack[len(v.stack)-1])
 			v.stack = v.stack[:len(v.stack)-1]
 		case C_HEAP_SAVE:
 			val := v.stack[len(v.stack)-1]
@@ -70,7 +80,7 @@ func (v *VM) Eval(r io.Reader, w io.Writer) error {
 			addr := v.stack[len(v.stack)-1]
 			v.stack[len(v.stack)-1] = v.heap[addr]
 		case C_FLOW_DEF:
-		// skip
+			// skip
 		case C_FLOW_CALL:
 			v.callStack = append(v.callStack, v.index)
 			v.index = v.labels[c.Operand]
@@ -92,8 +102,8 @@ func (v *VM) Eval(r io.Reader, w io.Writer) error {
 		case C_FLOW_EXIT:
 			return nil
 		case C_IO_WRITE_CH:
-			b := byte(v.stack[len(v.stack)-1])
-			w.Write([]byte{b})
+			b := v.stack[len(v.stack)-1]
+			fmt.Fprintf(w, "%c", b)
 			v.stack = v.stack[:len(v.stack)-1]
 		case C_IO_WRITE_NUM:
 			i := v.stack[len(v.stack)-1]
@@ -133,4 +143,15 @@ func (v *VM) prepareLabels() {
 			v.labels[c.Operand] = idx
 		}
 	}
+}
+
+func abs(i int) int {
+	if i < 0 {
+		return -i
+	}
+	return i
+}
+
+func div(i, j int) int {
+	return int(math.Floor(float64(i) / float64(j)))
 }
