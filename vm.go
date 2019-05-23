@@ -33,8 +33,19 @@ func NewVM(cs []Command) *VM {
 func (v *VM) Eval(r io.Reader, w io.Writer) error {
 	v.prepareLabels()
 
+	analysisCh, wg := StartAnalysis(v.cs)
+	defer func() {
+		if analysisCh != nil {
+			close(analysisCh)
+			wg.Wait()
+		}
+	}()
+
 	for {
 		c := v.cs[v.index]
+		if analysisCh != nil {
+			analysisCh <- c
+		}
 
 		// fmt.Println(v.stack)
 		// fmt.Println(v.heap)
