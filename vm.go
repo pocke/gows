@@ -94,15 +94,27 @@ func (v *VM) Eval(r io.Reader, w io.Writer) error {
 			v.callStack = append(v.callStack, v.index)
 			v.index = v.labels[c.Operand]
 		case C_FLOW_JUMP:
-			v.index = v.labels[c.Operand]
+			idx, ok := v.labels[c.Operand]
+			if !ok {
+				return fmt.Errorf("%d is not valid label", c.Operand)
+			}
+			v.index = idx
 		case C_FLOW_JUMP_IF_ZERO:
 			if v.stack[len(v.stack)-1] == 0 {
-				v.index = v.labels[c.Operand]
+				idx, ok := v.labels[c.Operand]
+				if !ok {
+					return fmt.Errorf("%d is not valid label", c.Operand)
+				}
+				v.index = idx
 			}
 			v.stack = v.stack[:len(v.stack)-1]
 		case C_FLOW_JUMP_IF_NEG:
 			if v.stack[len(v.stack)-1] < 0 {
-				v.index = v.labels[c.Operand]
+				idx, ok := v.labels[c.Operand]
+				if !ok {
+					return fmt.Errorf("%d is not valid label", c.Operand)
+				}
+				v.index = idx
 			}
 			v.stack = v.stack[:len(v.stack)-1]
 		case C_FLOW_END:
